@@ -1,0 +1,45 @@
+#!/bin/bash 
+vpnc_cmd="vpnc --no-detach --non-inter"
+vpnc_disconnect="kill 0$(pidof vpnc)"
+#vpnc_disconnect="vpnc-disconnect"
+
+# vpn_concentrator is an env. 
+if [ "x${vpn_concentrator}" == "x" ]; then
+    echo "no concentrator assigned for watching the vpn-connection, I will break up."
+    exit 1
+fi
+
+pingtest () {
+ local host=$vpn_concentrator
+ ping -q -c1 $host >> /dev/null
+ 
+ if [ "$?" == "0" ]; then
+    echo 0 #reachable 	   
+ else
+	echo 1 #not reachable
+ fi
+}
+
+while [ true ]; do
+	if [ "$(pingtest)" == "1" ]; then
+        echo "reconnect..."  
+        $vpnc_disconnect
+        sleep 1
+        $vpnc_cmd &
+        doloop=60
+        echo "waiting for connection..."  
+        while [ $doloop -gt 0 ]; do
+            let "--doloop"
+            if [ "$(pingtest)" == "1" ]; then
+                echo "connection failed"  
+                sleep 1
+            else
+                doloop=0
+                echo "connection established"  
+            fi
+        done
+    fi
+    sleep 60
+done
+
+exit 0
